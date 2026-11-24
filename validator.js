@@ -85,6 +85,13 @@
   function clean(raw) {
     var notes = [];
     var s = String(raw).trim().replace(/^["'`]+|["'`]+$/g, '');
+    // A label pasted with the ID, like "CIN: L17110…" or "LLPIN No. AAB-1234".
+    // Only stripped when a full-length ID follows, so an LLPIN like CIN-1234 is left alone.
+    var label = /^(CIN|LLPIN|LLP\s*IN)\s*(NO\.?|NUMBER)?(\s*[:#.]\s*|\s+)(?=\S)/i.exec(s);
+    if (label && s.slice(label[0].length).replace(/\s+/g, '').length >= 7) {
+      s = s.slice(label[0].length);
+      notes.push('Label “' + label[0].trim().replace(/[:#.]$/, '') + '” removed');
+    }
     var noSpace = s.replace(/\s+/g, '');
     if (noSpace !== s) notes.push('Spaces removed');
     var dashed = noSpace.replace(/[‐-―−]/g, '-');
@@ -130,7 +137,9 @@
     var a = parts[0], b = parts.length === 2 ? parts[1] : '';
     var badA = !/^[A-Z]{3}$/.test(a);
     var badB = !/^[0-9]{4}$/.test(b);
-    if (badA) {
+    if (badA && !a) {
+      r.errors.push({ msg: 'Nothing before the hyphen. An LLPIN starts with 3 letters, like AAA-1234.', segs: ['letters'] });
+    } else if (badA) {
       var letters = (a.match(/[A-Z]/g) || []).length;
       r.errors.push({
         msg: 'Before the hyphen: ' + q(a || '(nothing)') + ' must be exactly 3 letters' +
@@ -138,7 +147,9 @@
         segs: ['letters']
       });
     }
-    if (badB) {
+    if (badB && !b) {
+      r.errors.push({ msg: 'Nothing after the hyphen. An LLPIN ends with 4 digits, like AAA-1234.', segs: ['number'] });
+    } else if (badB) {
       var digits = (b.match(/[0-9]/g) || []).length;
       r.errors.push({
         msg: 'After the hyphen: ' + q(b || '(nothing)') + ' must be exactly 4 digits' +

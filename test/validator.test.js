@@ -129,6 +129,22 @@ test('suggests a fix for obvious typos only', () => {
   assert.equal(check('L17110MH2031PLC019786').suggestion, undefined);
 });
 
+test('strips a pasted label, but never eats a real LLPIN', () => {
+  for (const id of ['CIN: L17110MH1973PLC019786', 'cin no. L17110MH1973PLC019786', 'CIN L17110MH1973PLC019786']) {
+    const r = check(id);
+    assert.equal(r.valid, true, id);
+    assert.equal(r.id, 'L17110MH1973PLC019786');
+  }
+  assert.equal(check('LLPIN: AAB-1234').id, 'AAB-1234');
+  assert.equal(check('CIN-1234').id, 'CIN-1234');
+  assert.equal(check('CIN-1234').valid, true);
+});
+
+test('empty halves of an LLPIN get a clear message', () => {
+  assert.equal(msgs(check('AAB-')), 'Nothing after the hyphen. An LLPIN ends with 4 digits, like AAA-1234.');
+  assert.equal(msgs(check('-1234')), 'Nothing before the hyphen. An LLPIN starts with 3 letters, like AAA-1234.');
+});
+
 test('garbage input gets a plain explanation', () => {
   assert.match(msgs(check('hello world')), /Doesn’t look like a CIN/);
 });

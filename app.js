@@ -156,7 +156,7 @@
     if (!n) { el.lineCount.textContent = 'No IDs yet'; el.lineCount.style.color = ''; return; }
     if (n > state.max) {
       el.lineCount.textContent = fmt(n) + ' IDs · only the first ' + fmt(state.max) + ' will be checked';
-      el.lineCount.style.color = 'var(--warning)';
+      el.lineCount.style.color = 'var(--warning-ink)';
     } else {
       el.lineCount.textContent = plural(n, 'ID') + (bad ? ' · ' + plural(bad, 'problem') + ' marked in red' : '');
       el.lineCount.style.color = bad ? 'var(--error)' : '';
@@ -547,7 +547,12 @@
     if (t.closest('[data-all]')) { state.limit = Infinity; renderTable(); return; }
     if (t.closest('[data-reset]')) { state.filter = 'all'; state.q = ''; el.search.value = ''; render(); return; }
     if (t.closest('[data-open-help]')) { el.help.showModal(); return; }
-    if (t.closest('[data-close-help]') || t === el.help) { el.help.close(); return; }
+    if (t.closest('[data-close-help]')) { el.help.close(); return; }
+    if (t === el.help) {
+      var b = el.help.getBoundingClientRect();
+      if (e.clientX < b.left || e.clientX > b.right || e.clientY < b.top || e.clientY > b.bottom) el.help.close();
+      return;
+    }
     if (t.closest('[data-load-500]')) { el.ids.value = make500(); el.ids.scrollTop = 0; run({ resetFilters: true, scroll: true }); return; }
     var row = t.closest('tr.row');
     if (row && !window.getSelection().toString()) toggleRow(Number(row.getAttribute('data-idx')));

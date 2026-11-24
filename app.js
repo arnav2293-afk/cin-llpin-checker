@@ -277,13 +277,21 @@
 
   function renderTiles() {
     var total = state.data.length, valid = count('valid'), inv = total - valid;
-    var cos = count('companies'), llps = count('llps'), listed = count('listed');
+    // Companies and LLPs count each ID once; repeated lines are flagged as duplicates instead.
+    var uniq = state.data.filter(function (r) { return r.valid && !r.duplicateOf; });
+    var cos = uniq.filter(function (r) { return r.kind === 'CIN'; }).length;
+    var llps = uniq.filter(function (r) { return r.kind === 'LLPIN'; }).length;
+    var listed = uniq.filter(function (r) { return r.kind === 'CIN' && r.fields.listed === 'Listed'; }).length;
+    var dups = count('dups'), note = $('tiles-note');
+    note.hidden = !dups;
+    if (dups) note.textContent = 'Companies and LLPs count each ID once. ' +
+      (dups === 1 ? '1 repeated line is marked as a duplicate.' : fmt(dups) + ' repeated lines are marked as duplicates.');
     var pct = function (n) { return total ? Math.round(n / total * 100) : 0; };
     var tiles = [
       { f: 'valid', label: 'Valid', icon: ICON.validTile, value: valid, sub: pct(valid) + '% of ' + fmt(total) + ' checked', dot: 'var(--success)', track: 'var(--success-tint)', meter: valid / total },
       { f: 'invalid', label: 'Invalid', icon: ICON.invalidTile, value: inv, sub: inv ? 'Fix these before filing' : 'Nothing to fix', dot: 'var(--error)', track: 'var(--error-tint)', meter: inv / total },
       { f: 'companies', label: 'Companies', icon: ICON.building, value: cos, sub: cos ? fmt(listed) + ' listed · ' + fmt(cos - listed) + ' unlisted' : 'No valid CINs', dot: 'var(--seg-industry)', track: 'var(--seg-industry-tint)' },
-      { f: 'llps', label: 'LLPs', icon: ICON.people, value: llps, sub: llps ? 'LLPINs have no state or year' : 'No valid LLPINs', dot: 'var(--brand)', track: 'var(--brand-soft)' }
+      { f: 'llps', label: 'LLPs', icon: ICON.people, value: llps, sub: llps ? 'No listing, state or year in LLPINs' : 'No valid LLPINs', dot: 'var(--brand)', track: 'var(--brand-soft)' }
     ];
     el.tiles.innerHTML = tiles.map(function (t) {
       var on = state.filter === t.f;
@@ -323,21 +331,21 @@
 
   function detailsCell(r, idx) {
     if (!r.valid) {
-      var more = r.errors.length > 1 ? ' <span class="more">+' + (r.errors.length - 1) + ' more</span>' : '';
-      return '<td class="cell-details is-error">' + esc(r.errors[0].msg) + more + fixHtml(r, idx) + '</td>';
+      return '<td class="cell-details is-error">' +
+        r.errors.map(function (e) { return '<span class="err">' + esc(e.msg) + '</span>'; }).join('') +
+        fixHtml(r, idx) + '</td>';
     }
     var bits = [];
     if (r.duplicateOf) bits.push('Same ID as line ' + r.duplicateOf);
-    if (r.kind === 'LLPIN') bits.push('No state or year in an LLPIN');
     if (r.notes.length) bits.push(r.notes.join(', '));
     if (!bits.length) return '<td class="cell-details cell-faint">—</td>';
-    return '<td class="cell-details' + (r.kind === 'LLPIN' || r.duplicateOf ? ' keep-sm' : '') + '">' + esc(bits.join(' · ')) + '</td>';
+    return '<td class="cell-details keep-sm">' + esc(bits.join(' · ')) + '</td>';
   }
 
   // One-line summary used on phones instead of five labelled columns.
   function factsHtml(r) {
     var b = r.badFields || {}, bits;
-    if (r.kind === 'LLPIN') bits = [['LLP']];
+    if (r.kind === 'LLPIN') bits = [['LLP · listing, state and year aren’t part of an LLPIN']];
     else if (r.kind === 'CIN' && r.segments.length === 6) {
       bits = [[r.fields.listed, b.listed], [r.fields.type, b.type], [r.fields.state, b.state], [r.fields.year, b.year]];
     } else return '<td class="cell-facts is-empty-sm"></td>';
@@ -359,9 +367,9 @@
       '<td class="cell-status"><div class="badges">' + badges + '</div></td>' +
       factsHtml(r) +
       cell(r.kind === 'CIN' ? 'Company' : r.kind === 'LLPIN' ? 'LLP' : '—', 'Kind') +
-      cell(r.fields.listed, 'Listed', b.listed) +
-      cell(r.fields.state, 'State', b.state) +
-      cell(r.fields.year, 'Year', b.year) +
+      (r.kind === 'LLPIN'
+        ? '<td colspan="3" data-label="Listed, state, year" class="cell-na">Not part of an LLPIN</td>'
+        : cell(r.fields.listed, 'Listed', b.listed) + cell(r.fields.state, 'State', b.state) + cell(r.fields.year, 'Year', b.year)) +
       cell(r.fields.type, 'Type', b.type, 'cell-type') +
       detailsCell(r, idx) +
       '<td class="cell-toggle"><button type="button" class="toggle" aria-expanded="' + open + '" aria-controls="detail-' + idx + '">' +
@@ -432,9 +440,16 @@
 
   /* ---------- CSV ---------- */
   function exportCsv() {
-    var rows = state.visible || state.data;
+    // Always export in the order pasted (the current filter and search still apply).
+    var rows = (state.visible || state.data).slice().sort(function (a, b) { return a.line - b.line; });
     var head = ['Line', 'You typed', 'ID', 'Status', 'Kind', 'Listed', 'State', 'Year', 'Company type', 'Problems', 'Suggested fix', 'Notes'];
-    var q = function (v) { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var q = function (v) {
+      v = v == null ? '' : String(v);
+      // Excel runs cells starting with = + - @ as formulas, and drops leading zeros from
+      // numbers. A leading apostrophe makes it keep the text exactly as typed.
+      if (/^[=+\-@\t\r]/.test(v) || /^0[0-9]+$/.test(v)) v = "'" + v;
+      return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    };
     var lines = [head.join(',')].concat(rows.map(function (r) {
       var notes = r.notes.slice(); if (r.duplicateOf) notes.push('Duplicate of line ' + r.duplicateOf);
       return [r.line, r.input.trim(), r.id, r.valid ? 'Valid' : 'Invalid',

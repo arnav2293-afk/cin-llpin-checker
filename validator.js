@@ -165,7 +165,7 @@
     r.valid = r.errors.length === 0;
     if (r.valid) {
       r.fields = { kind: 'LLP', listed: '—', state: '—', year: '—', type: 'LLP', typeName: 'Limited liability partnership', industry: '—', reg: b };
-      r.summary = 'A limited liability partnership (LLP). LLPINs don’t include a state or year.';
+      r.summary = 'A limited liability partnership (LLP). LLPINs don’t include listing, state or year.';
     } else {
       r.fields.kind = 'LLP';
     }
@@ -345,6 +345,9 @@
         : 'Doesn’t look like a CIN (21 characters, like L17110MH1973PLC019786) or an LLPIN (like AAA-1234).',
       segs: []
     });
+    // Not an ID at all: show it exactly as typed, without "cleaned up" notes.
+    r.id = String(input).trim();
+    r.notes = [];
     r.segments = [{ key: 'raw', label: plural(r.id.length, 'character'), chars: r.id, meaning: '', bad: true }];
     return r;
   }

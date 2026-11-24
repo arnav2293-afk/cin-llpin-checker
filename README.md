@@ -49,10 +49,15 @@ only for errors. The page uses Inter for text and JetBrains Mono for IDs, so cha
 | Wrong | Every bad ID gets a specific message naming the characters at fault, plus hints for common slips (letter O instead of zero, `OD` instead of `OR`, a PAN or GSTIN pasted by mistake). |
 | 500+ lines | Summary tiles first, problems sorted to the top, a header that stays pinned while you scroll, 100 rows at a time with “Show more”, “Copy invalid IDs” and CSV export. Up to 5,000 IDs per check. Footer link: **Try a 500-ID test list**. |
 
-It also removes spaces, fixes lowercase, accepts commas and tabs (for pasting an Excel row),
-skips blank lines while keeping line numbers, and flags duplicates.
+It also removes spaces, fixes lowercase, strips pasted labels like `CIN:`, accepts commas and
+tabs (for pasting an Excel row), skips blank lines while keeping line numbers, and flags duplicates.
+Obvious typos (the letter O instead of a zero, `OD` instead of `OR`) get a one-click fix.
 
-On phones (≤ 760px) table rows become cards with a one-line summary, and the filter chips scroll sideways.
+The CSV export is in pasted order and safe to open in Excel: cells that Excel would run as a
+formula (starting with `=`, `+`, `-` or `@`) or strip leading zeros from are kept as text.
+
+Below 1,180px wide (tablets and phones) table rows become cards with a one-line summary.
+The page follows the system light or dark setting, and all text meets WCAG AA contrast in both.
 
 ## Rules checked
 

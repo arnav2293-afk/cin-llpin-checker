@@ -145,6 +145,16 @@ test('empty halves of an LLPIN get a clear message', () => {
   assert.equal(msgs(check('-1234')), 'Nothing before the hyphen. An LLPIN starts with 3 letters, like AAA-1234.');
 });
 
-test('garbage input gets a plain explanation', () => {
+test('junk input is shown exactly as typed, with no clean-up notes', () => {
+  const r = check('hello world');
+  assert.equal(r.id, 'hello world');
+  assert.deepEqual(r.notes, []);
+});
+
+test('LLP summary says listing, state and year are not encoded', () => {
+  assert.match(check('AAA-1234').summary, /don’t include listing, state or year/);
+});
+
+test("garbage input gets a plain explanation", () => {
   assert.match(msgs(check('hello world')), /Doesn’t look like a CIN/);
 });

@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CIN & LLPIN Checker</title>
   <meta name="description" content="Paste a list of CINs and LLPINs to see which are valid, exactly what is wrong with the rest, and what each one means.">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#171b22" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23a860b9'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11.5' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -87,7 +88,7 @@
       <div class="anatomy__llp">
         <div>
           <h3>And an LLPIN</h3>
-          <p class="muted">3 letters, a hyphen, then 4 digits. It has no state or year.</p>
+          <p class="muted">3 letters, a hyphen, then 4 digits. It has no listing, state or year.</p>
         </div>
         <div class="segs" id="anatomy-llp"></div>
       </div>
@@ -110,6 +111,7 @@
       </div>
 
       <div class="tiles" id="tiles"></div>
+      <p class="tiles-note muted" id="tiles-note" hidden></p>
 
       <div class="notice notice--fix" id="fix-notice" hidden></div>
       <div class="notice" id="notice" hidden></div>
@@ -176,7 +178,7 @@
     <h3>State codes <span class="muted">(characters 7–8)</span></h3>
     <dl class="codes codes--states" id="help-states"></dl>
     <h3>LLPIN</h3>
-    <p class="muted">An LLPIN (LLP Identification Number) is 3 letters, a hyphen and 4 digits, like AAB-1234. It doesn’t include a state or year.</p>
+    <p class="muted">An LLPIN (LLP Identification Number) is 3 letters, a hyphen and 4 digits, like AAB-1234. It doesn’t include listing, state or year.</p>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

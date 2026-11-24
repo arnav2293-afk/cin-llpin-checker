@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CIN & LLPIN Checker</title>
+  <meta name="description" content="Paste a list of CINs and LLPINs to see which are valid, exactly what is wrong with the rest, and what each one means.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23a860b9'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11.5' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#ids">Skip to the input</a>
+
+  <header class="topbar">
+    <div class="topbar__inner">
+      <span class="logo" aria-hidden="true">F</span>
+      <span class="brand">FileSure</span>
+      <span class="topbar__divider" aria-hidden="true"></span>
+      <span class="topbar__app">CIN &amp; LLPIN Checker</span>
+      <button class="link-btn topbar__help" type="button" data-open-help>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6"/><path d="M12 17.5h.01"/></svg>
+        How to read a CIN
+      </button>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="hero__inner">
+      <section class="intro">
+        <h1>Check CINs and LLPINs</h1>
+        <p>Paste a list of company or LLP IDs. We’ll tell you what each one means, and exactly what’s wrong if it isn’t valid.</p>
+        <ul class="trust">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Plain-English errors</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Up to 5,000 IDs at once</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Nothing leaves your browser</li>
+        </ul>
+      </section>
+
+      <section class="card input-card" aria-labelledby="ids-label">
+        <div class="input-card__head">
+          <label id="ids-label" for="ids">Your CINs and LLPINs</label>
+          <span class="muted" id="line-count" aria-live="polite">No IDs yet</span>
+        </div>
+        <div class="editor" id="editor">
+          <div class="editor__gutter" id="gutter" aria-hidden="true"></div>
+          <div class="editor__body">
+            <div class="editor__backdrop" id="backdrop" aria-hidden="true"></div>
+            <textarea id="ids" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="characters"
+              aria-describedby="ids-hint ids-error"
+              placeholder="Paste one ID per line, for example:&#10;L17110MH1973PLC019786&#10;AAB-1234"></textarea>
+          </div>
+        </div>
+        <p class="input-error" id="ids-error" role="alert" hidden></p>
+        <div class="input-card__actions">
+          <button class="btn btn--primary" type="button" id="check-btn">Check IDs</button>
+          <button class="btn btn--secondary" type="button" id="sample-btn">Try sample IDs</button>
+          <button class="btn btn--ghost" type="button" id="clear-btn" hidden>Clear</button>
+          <p class="input-card__hint muted" id="ids-hint">
+            <span class="hide-sm"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to check ·</span>
+            Spaces and lowercase are fixed for you · commas and tabs work too
+          </p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <main class="page">
+    <!-- Shown before anything is checked -->
+    <section class="card anatomy" id="empty-state" aria-labelledby="anatomy-title">
+      <div class="anatomy__head">
+        <div>
+          <h2 id="anatomy-title">How a CIN is built</h2>
+          <p class="muted">Every CIN has 21 characters in six parts. Here’s a real one.</p>
+        </div>
+        <button class="link-btn" type="button" data-open-help>See all state and type codes</button>
+      </div>
+      <div class="segs segs--big" id="anatomy-cin"></div>
+      <div class="anatomy__facts">
+        <div><strong>L or U</strong><span>Listed on a stock exchange, or unlisted</span></div>
+        <div><strong>State code</strong><span>Two letters, e.g. MH, KA, DL, TN</span></div>
+        <div><strong>Company type</strong><span>PLC public, PTC private, OPC one person, GOI government</span></div>
+      </div>
+      <div class="anatomy__llp">
+        <div>
+          <h3>And an LLPIN</h3>
+          <p class="muted">3 letters, a hyphen, then 4 digits. It has no state or year.</p>
+        </div>
+        <div class="segs" id="anatomy-llp"></div>
+      </div>
+    </section>
+
+    <!-- Shown after a check -->
+    <section class="results" id="results" hidden aria-labelledby="results-title">
+      <div class="results__head">
+        <div>
+          <h2 id="results-title">Results</h2>
+          <p class="muted" id="results-sub" aria-live="polite"></p>
+        </div>
+        <div class="results__actions">
+          <button class="btn btn--secondary" type="button" id="copy-invalid-btn">Copy invalid IDs</button>
+          <button class="btn btn--primary" type="button" id="export-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>
+            <span id="export-label">Export CSV</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="tiles" id="tiles"></div>
+
+      <div class="notice notice--fix" id="fix-notice" hidden></div>
+      <div class="notice" id="notice" hidden></div>
+
+      <div class="toolbar">
+        <div class="chips" id="chips" role="group" aria-label="Filter results"></div>
+        <div class="toolbar__right">
+          <label class="search">
+            <span class="sr-only">Search results</span>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input type="search" id="search" placeholder="Search ID, state or type">
+          </label>
+          <label class="select">
+            <span class="sr-only">Sort</span>
+            <select id="sort">
+              <option value="problems">Problems first</option>
+              <option value="input">Order pasted</option>
+              <option value="az">ID A–Z</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="table-wrap card">
+        <table class="table" id="table">
+          <thead>
+            <tr>
+              <th scope="col" class="col-line">Line</th>
+              <th scope="col" class="col-id">ID</th>
+              <th scope="col" class="col-status">Status</th>
+              <th scope="col">Kind</th>
+              <th scope="col">Listed</th>
+              <th scope="col">State</th>
+              <th scope="col" class="col-year">Year</th>
+              <th scope="col">Type</th>
+              <th scope="col" class="col-details">Details</th>
+              <th scope="col" class="col-toggle"><span class="sr-only">Breakdown</span></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="table-empty" id="table-empty" hidden></div>
+      </div>
+      <div class="pager" id="pager"></div>
+    </section>
+  </main>
+
+  <footer class="footer muted">
+    <span>Checks the format of each ID only. It doesn’t look up the company in MCA records.</span>
+    <button type="button" class="link-btn" data-load-500>Try a 500-ID test list</button>
+  </footer>
+
+  <dialog class="help" id="help" aria-labelledby="help-title">
+    <div class="help__head">
+      <h2 id="help-title">How to read a CIN</h2>
+      <button class="icon-btn" type="button" data-close-help aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <p class="muted">A CIN (Corporate Identity Number) is 21 characters. Each part means something:</p>
+    <div class="segs segs--big" id="help-cin"></div>
+    <h3>Company type codes <span class="muted">(characters 13–15)</span></h3>
+    <dl class="codes" id="help-types"></dl>
+    <h3>State codes <span class="muted">(characters 7–8)</span></h3>
+    <dl class="codes codes--states" id="help-states"></dl>
+    <h3>LLPIN</h3>
+    <p class="muted">An LLPIN (LLP Identification Number) is 3 letters, a hyphen and 4 digits, like AAB-1234. It doesn’t include a state or year.</p>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="validator.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

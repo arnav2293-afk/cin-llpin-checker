@@ -50,10 +50,16 @@
     ULT: { name: 'Private unlimited company', short: 'Unlimited (private)' }
   };
 
-  // Private company types cannot be listed on a stock exchange.
+  // Private company types. Under Companies Act 2013 s.2(68) a private company can't invite
+  // the public to buy its securities, so its shares can't be listed. An OPC is a private
+  // company (s.3(1)(c)). A CIN starting with L plus one of these types gets a WARNING:
+  // the format is fine, but the combination shouldn't exist.
   var PRIVATE_TYPES = { PTC: 1, OPC: 1, GAP: 1, ULT: 1 };
 
-  var OPC_FROM_YEAR = 2014; // One person companies were allowed from 1 April 2014.
+  // OPCs could only be formed once s.3 of the Companies Act 2013 came into force on
+  // 1 April 2014 (MCA notification S.O. 902(E), 26 March 2014). A CIN has only the year,
+  // so any OPC year before 2014 gets a WARNING; 2014 itself is accepted.
+  var OPC_FROM_YEAR = 2014;
 
   var CIN_SEGMENTS = [
     { key: 'listing', label: 'Listing', from: 0, to: 1 },
@@ -114,7 +120,9 @@
   function blankResult(line, input, cleaned) {
     return {
       line: line, input: input, id: cleaned.id, notes: cleaned.notes.slice(),
-      kind: 'Unknown', valid: false, errors: [], segments: [],
+      // errors: the format is wrong, so the ID is invalid.
+      // warnings: the format is valid, but the combination breaks company law. Still valid.
+      kind: 'Unknown', valid: false, errors: [], warnings: [], segments: [],
       fields: { kind: '—', listed: '—', state: '—', year: '—', type: '—', typeName: '—', industry: '—', reg: '—' },
       summary: ''
     };
@@ -236,20 +244,22 @@
     if (!/^[0-9]{6}$/.test(p.reg)) {
       fail('reg', range(S.reg) + ': ' + q(p.reg) + ' must be 6 digits (the registration number).' + digitHint(p.reg));
     }
-    // Cross-checks between segments (only when both parts are individually fine).
+    // Domain checks: the format is valid, but the combination breaks company law.
+    // These are warnings, not errors (only run when both parts are individually fine).
+    var warnSegs = {};
+    function warn(code, keys, msg) {
+      keys.forEach(function (k) { warnSegs[k] = true; });
+      r.warnings.push({ code: code, msg: msg, segs: keys });
+    }
     if (!badSegs.listing && type && p.listing === 'L' && PRIVATE_TYPES[p.type]) {
-      badSegs.listing = badSegs.type = true;
-      r.errors.push({
-        msg: 'Character 1 says listed (L), but ' + q(p.type) + ' is a private company type. Private companies can’t be listed.',
-        segs: ['listing', 'type']
-      });
+      warn('listed-private', ['listing', 'type'], p.type === 'OPC'
+        ? 'One-person companies can’t be listed. Check the first letter.'
+        : 'Private companies (' + p.type + ') can’t be listed. Check the first letter.');
     }
     if (p.type === 'OPC' && !badSegs.year && year < OPC_FROM_YEAR) {
-      badSegs.year = badSegs.type = true;
-      r.errors.push({
-        msg: 'One person companies (OPC) only exist from ' + OPC_FROM_YEAR + ', but characters 9–12 say ' + p.year + '.',
-        segs: ['year', 'type']
-      });
+      warn('opc-before-2014', ['year', 'type'],
+        'One-person companies could only be formed from 1 April ' + OPC_FROM_YEAR +
+        ', but characters 9–12 say ' + p.year + '. Check the year.');
     }
 
     var listed = p.listing === 'L' ? 'Listed' : p.listing === 'U' ? 'Unlisted' : '—';
@@ -262,7 +272,8 @@
       reg: badSegs.reg ? 'Not 6 digits' : 'Registration no.'
     };
     r.segments = CIN_SEGMENTS.map(function (s) {
-      return { key: s.key, label: s.label, chars: p[s.key], meaning: meanings[s.key], bad: !!badSegs[s.key], from: s.from, to: s.to };
+      return { key: s.key, label: s.label, chars: p[s.key], meaning: meanings[s.key], bad: !!badSegs[s.key],
+        warn: !badSegs[s.key] && !!warnSegs[s.key], from: s.from, to: s.to };
     });
     r.fields = {
       kind: 'Company',
@@ -277,6 +288,9 @@
     r.badFields = {
       listed: !!badSegs.listing, state: !!badSegs.state, year: !!badSegs.year, type: !!badSegs.type
     };
+    r.warnFields = {
+      listed: !!warnSegs.listing, year: !!warnSegs.year, type: !!warnSegs.type
+    };
     r.valid = r.errors.length === 0;
     if (r.valid) {
       var art = listed === 'Listed' ? 'A listed ' : 'An unlisted ';
@@ -286,12 +300,12 @@
     return r;
   }
 
-  // Character ranges [from, to) of the parts that are wrong, for highlighting.
-  function badRanges(r) {
-    if (r.badRanges) return r.badRanges;
-    return r.segments.filter(function (s) { return s.bad && s.from !== undefined && s.to > s.from; })
+  // Character ranges [from, to) of the parts that are wrong (or warned about), for highlighting.
+  function ranges(r, flag) {
+    return r.segments.filter(function (s) { return s[flag] && s.from !== undefined && s.to > s.from; })
       .map(function (s) { return [s.from, s.to]; });
   }
+  function badRanges(r) { return r.badRanges || ranges(r, 'bad'); }
 
   // Offer a corrected ID when the mistake is an obvious typo
   // (letter O / I typed in a digit part, or a common wrong state code).
@@ -327,6 +341,7 @@
   function validate(input, line, opts) {
     var r = validateOnly(input, line, opts);
     r.badRanges = badRanges(r);
+    r.warnRanges = ranges(r, 'warn');
     if (!r.valid && !(opts && opts.noSuggest)) suggest(r, opts);
     return r;
   }

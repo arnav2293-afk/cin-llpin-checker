@@ -76,14 +76,144 @@ test('letter O instead of zero gets a hint when no one-click fix exists', () => 
   assert.doesNotMatch(msgs(check('L17110MH1973PLCO19786')), /letter O or I/);
 });
 
-test('private company cannot be listed', () => {
-  const r = check('L72200KA2008PTC045678');
-  assert.equal(r.valid, false);
-  assert.match(msgs(r), /Private companies can’t be listed/);
+// ---------- Domain warnings (format valid, but breaks company law) ----------
+const warns = (r) => r.warnings.map((w) => w.msg).join(' | ');
+
+test('rule 1: listed OPC is valid but gets a warning', () => {
+  const r = check('L74999DL2019OPC351234');
+  assert.equal(r.valid, true, msgs(r));
+  assert.deepEqual(r.errors, []);
+  assert.equal(r.warnings.length, 1);
+  assert.equal(r.warnings[0].code, 'listed-private');
+  assert.equal(r.warnings[0].msg, 'One-person companies can’t be listed. Check the first letter.');
+  assert.deepEqual(r.warnings[0].segs, ['listing', 'type']);
+  assert.deepEqual(r.warnRanges, [[0, 1], [12, 15]]);
 });
 
-test('OPC before 2014 is flagged', () => {
-  assert.match(msgs(check('U74999DL2010OPC351234')), /only exist from 2014/);
+test('rule 1: unlisted OPC gets no warning', () => {
+  assert.deepEqual(check('U74999DL2019OPC351234').warnings, []);
+});
+
+test('rule 1: other listed private types warn too (PTC, GAP, ULT); PLC does not', () => {
+  for (const t of ['PTC', 'GAP', 'ULT']) {
+    const r = check('L72200KA2008' + t + '045678');
+    assert.equal(r.valid, true, t);
+    assert.equal(warns(r), 'Private companies (' + t + ') can’t be listed. Check the first letter.');
+  }
+  assert.deepEqual(check('L17110MH1973PLC019786').warnings, []);
+});
+
+test('rule 2: OPC dated before 2014 is valid but gets a warning', () => {
+  for (const y of ['2013', '2010', '1990']) {
+    const r = check('U74999DL' + y + 'OPC351234');
+    assert.equal(r.valid, true, y);
+    assert.deepEqual(r.errors, []);
+    assert.equal(r.warnings.length, 1, y);
+    assert.equal(r.warnings[0].code, 'opc-before-2014');
+    assert.equal(r.warnings[0].msg, 'One-person companies could only be formed from 1 April 2014, but characters 9–12 say ' + y + '. Check the year.');
+  }
+});
+
+test('rule 2: 2014 is the first allowed OPC year (boundary)', () => {
+  assert.deepEqual(check('U74999DL2014OPC351234').warnings, []);
+  assert.deepEqual(check('U74999DL2015OPC351234').warnings, []);
+  // The year rule only applies to OPCs.
+  assert.deepEqual(check('U72200KA2010PTC045678').warnings, []);
+});
+
+test('both rules can fire on the same ID', () => {
+  const r = check('L74999DL2010OPC351234');
+  assert.equal(r.valid, true);
+  assert.deepEqual(r.warnings.map((w) => w.code), ['listed-private', 'opc-before-2014']);
+});
+
+test('warnings stay separate from errors on an invalid ID', () => {
+  const r = check('L74999XX2010OPC351234');
+  assert.equal(r.valid, false);
+  assert.match(msgs(r), /“XX” is not a valid Indian state code/);
+  assert.doesNotMatch(msgs(r), /One-person/);
+  assert.equal(r.warnings.length, 2);
+});
+
+test('warning rules are skipped when the part itself is broken', () => {
+  // Year is not a number: that is an error, so no OPC-year warning on top.
+  const r = check('U74999DL20X0OPC351234');
+  assert.equal(r.valid, false);
+  assert.deepEqual(r.warnings, []);
+});
+
+test('every result has a warnings array, even LLPINs and junk', () => {
+  for (const id of ['AAA-1234', 'AB-12345', 'hello world', 'U7220KA2008PTC04567']) {
+    assert.ok(Array.isArray(check(id).warnings), id);
+  }
+});
+
+// ---------- The 14-line QA list ----------
+test('QA list: all 14 lines give the expected results', () => {
+  const QA = [
+    'L17110MH1973PLC019786', 'u17110mh 1973plc019786', 'U72900KA2015PTC082988', 'U74999TG2014OPC093842',
+    'L17110XX1973PLC019786', 'L17110MH2031PLC019786', 'L17110MH1973PXC019786', 'L17110MH1973PLC01978',
+    'X17110MH1973PLC01978A', 'AAA-1234', 'AAA1234', 'L17110MH1973PLC019786', '', 'hello world'
+  ].join('\n');
+  const { results } = V.validateText(QA, opts);
+  const at = (line) => results.find((r) => r.line === line);
+  const f = (r) => [r.fields.listed, r.fields.state, r.fields.year, r.fields.typeName];
+
+  // Blank line 13 is skipped; the line numbers still match the input.
+  assert.equal(results.length, 13);
+  assert.deepEqual(results.map((r) => r.line), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14]);
+
+  // 1. Valid, listed, Maharashtra, 1973, public
+  assert.equal(at(1).valid, true);
+  assert.deepEqual(f(at(1)), ['Listed', 'Maharashtra', '1973', 'Public limited company']);
+  // 2. Valid after cleaning, unlisted, public
+  assert.equal(at(2).valid, true);
+  assert.equal(at(2).id, 'U17110MH1973PLC019786');
+  assert.deepEqual(f(at(2)), ['Unlisted', 'Maharashtra', '1973', 'Public limited company']);
+  assert.ok(at(2).notes.includes('Spaces removed') && at(2).notes.includes('Changed to capitals'));
+  // 3. Valid, private, Karnataka, 2015
+  assert.equal(at(3).valid, true);
+  assert.deepEqual(f(at(3)).slice(1), ['Karnataka', '2015', 'Private limited company']);
+  // 4. Valid, one-person company, Telangana, 2014 (first allowed OPC year: no warning)
+  assert.equal(at(4).valid, true);
+  assert.deepEqual(f(at(4)).slice(1), ['Telangana', '2014', 'One person company']);
+  assert.deepEqual(at(4).warnings, []);
+  // 5. Invalid: XX is not a state code
+  assert.equal(at(5).valid, false);
+  assert.equal(msgs(at(5)), 'Characters 7–8: “XX” is not a valid Indian state code.');
+  // 6. Invalid: 2031 is a future year
+  assert.equal(at(6).valid, false);
+  assert.match(msgs(at(6)), /^Characters 9–12: “2031” is in the future\./);
+  // 7. Invalid: PXC is not a company type
+  assert.equal(at(7).valid, false);
+  assert.match(msgs(at(7)), /^Characters 13–15: “PXC” is not a known company type\./);
+  // 8. Invalid: 20 characters instead of 21
+  assert.equal(at(8).valid, false);
+  assert.match(msgs(at(8)), /^Has 20 characters\. A CIN must be exactly 21/);
+  // 9. Invalid with BOTH errors: X is not L/U, and the registration number has a letter
+  assert.equal(at(9).valid, false);
+  assert.equal(at(9).errors.length, 2);
+  assert.match(at(9).errors[0].msg, /^Character 1: “X” must be L \(listed\) or U \(unlisted\)\.$/);
+  assert.match(at(9).errors[1].msg, /^Characters 16–21: “01978A” must be 6 digits/);
+  // 10. Valid LLP; listing, state and year are not part of an LLPIN
+  assert.equal(at(10).valid, true);
+  assert.equal(at(10).kind, 'LLPIN');
+  assert.deepEqual([at(10).fields.listed, at(10).fields.state, at(10).fields.year], ['—', '—', '—']);
+  assert.match(at(10).summary, /don’t include listing, state or year/);
+  // 11. AAA1234: accepted with a note about the missing hyphen
+  assert.equal(at(11).valid, true);
+  assert.equal(at(11).id, 'AAA-1234');
+  assert.ok(at(11).notes.includes('Hyphen added'));
+  // 12. Duplicate of line 1
+  assert.equal(at(12).valid, true);
+  assert.equal(at(12).duplicateOf, 1);
+  // 14. hello world: clear "not a CIN or LLPIN" message, shown as typed
+  assert.equal(at(14).valid, false);
+  assert.equal(at(14).id, 'hello world');
+  assert.match(msgs(at(14)), /^Doesn’t look like a CIN .* or an LLPIN/);
+
+  // No line in this list breaks a domain rule.
+  assert.equal(results.filter((r) => r.warnings.length).length, 0);
 });
 
 test('recognises PAN and GSTIN', () => {

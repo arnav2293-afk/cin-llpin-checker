@@ -56,7 +56,7 @@ Obvious typos (the letter O instead of a zero, `OD` instead of `OR`) get a one-c
 The CSV export is in pasted order and safe to open in Excel: cells that Excel would run as a
 formula (starting with `=`, `+`, `-` or `@`) or strip leading zeros from are kept as text.
 
-Below 1,180px wide (tablets and phones) table rows become cards with a one-line summary.
+Below 1,200px wide (tablets and phones) table rows become cards with a one-line summary.
 The page follows the system light or dark setting, and all text meets WCAG AA contrast in both.
 
 ## Rules checked
@@ -72,8 +72,15 @@ The page follows the system light or dark setting, and all text meets WCAG AA co
 | 13–15 | Type | PLC, PTC, OPC, GOI, SGC, FLC, FTC, GAP, GAT, NPL, ULL, ULT |
 | 16–21 | Reg. no. | 6 digits |
 
-Cross-checks: a private type (PTC, OPC, GAP, ULT) can’t be listed (`L`), and an OPC
-can’t be older than 2014.
+**Warnings** (amber, the ID stays *valid*): the format is fine, but the combination breaks company law.
+
+| Warning | Why |
+|---|---|
+| Listed (`L`) with a private type (OPC, PTC, GAP, ULT) | A private company can’t invite the public to buy its securities (Companies Act 2013, s.2(68)), so it can’t be listed. An OPC is a private company (s.3(1)(c)). |
+| OPC with a year before 2014 | OPCs could only be formed once s.3 of the Companies Act 2013 came into force on 1 April 2014 (MCA notification S.O. 902(E), 26 March 2014). |
+
+Each result has separate `errors` and `warnings` arrays. Warnings show with an icon and text,
+are counted in the summary bar, have their own filter, and get their own CSV column.
 
 **LLPIN**: 3 letters, a hyphen, 4 digits (e.g. `AAB-1234`). It has no state or year.
 `AAB1234` is accepted and given its hyphen.

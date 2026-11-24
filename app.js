@@ -19,7 +19,7 @@
     'L17110MH1973PLC019786', 'U72200KA2008PTC045678', 'U74999DL2019OPC351234',
     'U40100TN1957GOI002345', 'AAB-1234', 'U72200XX2015PTC123456',
     'L17110MH2031PLC019786', 'U72200KA2008ABC045678', 'U7220KA2008PTC04567',
-    'AB-12345', 'u72200ka2008ptc045678', 'ABCDE1234F', 'L65920MH1994PLCO80618'
+    'AB-12345', 'u72200ka2008ptc045678', 'ABCDE1234F', 'L65920MH1994PLCO80618', 'L74999DL2010OPC351234'
   ].join('\n');
 
   var PAGE = 100;
@@ -40,7 +40,8 @@
     wand: svg(16, '<path d="m3 21 10-10"/><path d="M15 3v3M15 10v3M11 7h-1M20 7h-2M18.2 4.2 17 5.4M18.2 9.8 17 8.6"/>'),
     chevron: svg(18, '<path d="m6 9 6 6 6-6"/>'),
     toast: svg(16, '<path d="M5 12.5l4.5 4.5L19 7.5"/>', 2.6),
-    warn: svg(16, '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>')
+    warn: svg(16, '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>'),
+    warnSm: svg(13, '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>', 2.4)
   };
 
   /* ---------- helpers ---------- */
@@ -67,7 +68,7 @@
   /* ---------- segments ---------- */
   function segsHtml(segments) {
     return segments.map(function (s) {
-      var cls = 'seg seg--' + s.key + (s.bad ? ' is-bad' : '') + (s.missing ? ' is-missing' : '');
+      var cls = 'seg seg--' + s.key + (s.bad ? ' is-bad' : '') + (s.warn ? ' is-warn' : '') + (s.missing ? ' is-missing' : '');
       return '<div class="' + cls + '">' +
         '<span class="seg__chars">' + esc(s.chars) + '</span>' +
         '<span class="seg__label">' + (s.label ? esc(s.label) : '&nbsp;') + '</span>' +
@@ -76,15 +77,23 @@
     }).join('');
   }
 
-  // The ID with its wrong characters wrapped in <mark>.
+  // The ID with its wrong characters in <mark> (red) and warned-about characters in <mark class="warn"> (amber).
   function idHtml(r) {
     var id = r.id || r.input.trim(), out = '', pos = 0;
-    (r.badRanges || []).slice().sort(function (a, b) { return a[0] - b[0]; }).forEach(function (g) {
+    var marks = (r.badRanges || []).map(function (g) { return [g[0], g[1], '']; })
+      .concat((r.warnRanges || []).map(function (g) { return [g[0], g[1], ' class="warn"']; }));
+    marks.sort(function (a, b) { return a[0] - b[0]; }).forEach(function (g) {
       if (g[0] < pos) return;
-      out += esc(id.slice(pos, g[0])) + '<mark>' + esc(id.slice(g[0], g[1])) + '</mark>';
+      out += esc(id.slice(pos, g[0])) + '<mark' + g[2] + '>' + esc(id.slice(g[0], g[1])) + '</mark>';
       pos = g[1];
     });
     return out + esc(id.slice(pos));
+  }
+  function hasWarn(r) { return r.warnings && r.warnings.length > 0; }
+  function warnList(r, tag) {
+    return r.warnings.map(function (w) {
+      return '<' + tag + ' class="warn-msg">' + ICON.warnSm + '<span><span class="sr-only">Warning: </span>' + esc(w.msg) + '</span></' + tag + '>';
+    }).join('');
   }
 
   /* ---------- editor: line numbers + problem markers ---------- */
@@ -119,9 +128,9 @@
   function computeLines() {
     var L = {};
     state.data.forEach(function (r) {
-      var s = !r.valid ? 'bad' : r.duplicateOf ? 'dup' : 'ok';
-      var cur = L[r.line];
-      if (cur === 'bad' || (cur === 'dup' && s === 'ok')) return;
+      var s = !r.valid ? 'bad' : hasWarn(r) ? 'warn' : r.duplicateOf ? 'dup' : 'ok';
+      var rank = { ok: 0, dup: 1, warn: 2, bad: 3 };
+      if (L[r.line] && rank[L[r.line]] >= rank[s]) return;
       L[r.line] = s;
     });
     state.lines = L;
@@ -153,13 +162,15 @@
     var n = countIds(el.ids.value);
     el.clear.hidden = !el.ids.value.length;
     var bad = state.checked ? state.data.filter(function (r) { return !r.valid; }).length : 0;
+    var warned = state.checked ? state.data.filter(function (r) { return r.valid && hasWarn(r); }).length : 0;
     if (!n) { el.lineCount.textContent = 'No IDs yet'; el.lineCount.style.color = ''; return; }
     if (n > state.max) {
       el.lineCount.textContent = fmt(n) + ' IDs · only the first ' + fmt(state.max) + ' will be checked';
       el.lineCount.style.color = 'var(--warning-ink)';
     } else {
-      el.lineCount.textContent = plural(n, 'ID') + (bad ? ' · ' + plural(bad, 'problem') + ' marked in red' : '');
-      el.lineCount.style.color = bad ? 'var(--error)' : '';
+      el.lineCount.textContent = plural(n, 'ID') + (bad ? ' · ' + plural(bad, 'problem') + ' marked in red' : '') +
+        (warned ? ' · ' + plural(warned, 'warning') + ' in amber' : '');
+      el.lineCount.style.color = bad ? 'var(--error)' : warned ? 'var(--warning-ink)' : '';
     }
   }
   function showError(msg) {
@@ -223,6 +234,7 @@
     { key: 'all', label: 'All', test: function () { return true; } },
     { key: 'invalid', label: 'Invalid', test: function (r) { return !r.valid; } },
     { key: 'valid', label: 'Valid', test: function (r) { return r.valid; } },
+    { key: 'warnings', label: 'Warnings', test: function (r) { return hasWarn(r); } },
     { key: 'companies', label: 'Companies', test: function (r) { return r.valid && r.kind === 'CIN'; } },
     { key: 'llps', label: 'LLPs', test: function (r) { return r.valid && r.kind === 'LLPIN'; } },
     { key: 'listed', label: 'Listed', test: function (r) { return r.valid && r.fields.listed === 'Listed'; } },
@@ -239,10 +251,11 @@
       if (!f.test(r)) return false;
       if (!q) return true;
       var hay = [r.id, r.input, r.fields.state, r.fields.typeName, r.fields.listed, r.kind, r.fields.year]
-        .concat(r.errors.map(function (e) { return e.msg; })).join(' ').toLowerCase();
+        .concat(r.errors.map(function (e) { return e.msg; }), r.warnings.map(function (w) { return w.msg; })).join(' ').toLowerCase();
       return hay.indexOf(q) !== -1;
     });
-    if (state.sort === 'problems') rows.sort(function (a, b) { return (a.valid - b.valid) || (a.line - b.line); });
+    // Problems first: invalid, then valid with warnings, then the rest.
+    if (state.sort === 'problems') rows.sort(function (a, b) { return (a.valid - b.valid) || (hasWarn(b) - hasWarn(a)) || (a.line - b.line); });
     else if (state.sort === 'az') rows.sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : a.line - b.line; });
     else rows.sort(function (a, b) { return a.line - b.line; });
     return rows;
@@ -254,6 +267,8 @@
   function renderSummary() {
     var total = state.data.length, inv = count('invalid'), dups = count('dups');
     var parts = [plural(total, 'ID') + ' checked', fmt(total - inv) + ' valid', fmt(inv) + ' invalid'];
+    var nWarn = state.data.reduce(function (n, r) { return n + r.warnings.length; }, 0), wIds = count('warnings');
+    if (nWarn) parts.push(plural(nWarn, 'warning') + (wIds !== nWarn ? ' on ' + plural(wIds, 'ID') : ''));
     if (dups) parts.push(plural(dups, 'duplicate'));
     el.sub.textContent = parts.join(' · ');
     el.copyInvalid.disabled = !inv;
@@ -288,7 +303,8 @@
       (dups === 1 ? '1 repeated line is marked as a duplicate.' : fmt(dups) + ' repeated lines are marked as duplicates.');
     var pct = function (n) { return total ? Math.round(n / total * 100) : 0; };
     var tiles = [
-      { f: 'valid', label: 'Valid', icon: ICON.validTile, value: valid, sub: pct(valid) + '% of ' + fmt(total) + ' checked', dot: 'var(--success)', track: 'var(--success-tint)', meter: valid / total },
+      { f: 'valid', label: 'Valid', icon: ICON.validTile, value: valid,
+        sub: pct(valid) + '% of ' + fmt(total) + ' checked' + (count('warnings') ? ' · ' + fmt(state.data.filter(function (r) { return r.valid && hasWarn(r); }).length) + ' with warnings' : ''), dot: 'var(--success)', track: 'var(--success-tint)', meter: valid / total },
       { f: 'invalid', label: 'Invalid', icon: ICON.invalidTile, value: inv, sub: inv ? 'Fix these before filing' : 'Nothing to fix', dot: 'var(--error)', track: 'var(--error-tint)', meter: inv / total },
       { f: 'companies', label: 'Companies', icon: ICON.building, value: cos, sub: cos ? fmt(listed) + ' listed · ' + fmt(cos - listed) + ' unlisted' : 'No valid CINs', dot: 'var(--seg-industry)', track: 'var(--seg-industry-tint)' },
       { f: 'llps', label: 'LLPs', icon: ICON.people, value: llps, sub: llps ? 'No listing, state or year in LLPINs' : 'No valid LLPINs', dot: 'var(--brand)', track: 'var(--brand-soft)' }
@@ -316,10 +332,11 @@
     }).join('');
   }
 
-  function cell(value, label, bad, extraClass) {
+  function cell(value, label, bad, extraClass, warned) {
     var faint = value === '—';
     var cls = ((faint ? 'cell-faint is-empty-sm ' : '') + (extraClass || '')).trim();
-    var inner = bad ? '<span class="bad-field">' + esc(value) + '</span>' : esc(value);
+    var inner = bad ? '<span class="bad-field">' + esc(value) + '</span>'
+      : warned ? '<span class="warn-field">' + esc(value) + '</span>' : esc(value);
     return '<td data-label="' + label + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + inner + '</td>';
   }
 
@@ -330,38 +347,42 @@
   }
 
   function detailsCell(r, idx) {
+    var warnings = hasWarn(r) ? warnList(r, 'span') : '';
     if (!r.valid) {
       return '<td class="cell-details is-error">' +
         r.errors.map(function (e) { return '<span class="err">' + esc(e.msg) + '</span>'; }).join('') +
-        fixHtml(r, idx) + '</td>';
+        warnings + fixHtml(r, idx) + '</td>';
     }
     var bits = [];
     if (r.duplicateOf) bits.push('Same ID as line ' + r.duplicateOf);
     if (r.notes.length) bits.push(r.notes.join(', '));
-    if (!bits.length) return '<td class="cell-details cell-faint">—</td>';
-    return '<td class="cell-details keep-sm">' + esc(bits.join(' · ')) + '</td>';
+    if (!bits.length && !warnings) return '<td class="cell-details cell-faint">—</td>';
+    return '<td class="cell-details keep-sm' + (warnings ? ' has-warn' : '') + '">' + warnings +
+      (bits.length ? '<span class="note">' + esc(bits.join(' · ')) + '</span>' : '') + '</td>';
   }
 
   // One-line summary used on phones instead of five labelled columns.
   function factsHtml(r) {
-    var b = r.badFields || {}, bits;
+    var b = r.badFields || {}, w = r.warnFields || {}, bits;
     if (r.kind === 'LLPIN') bits = [['LLP · listing, state and year aren’t part of an LLPIN']];
     else if (r.kind === 'CIN' && r.segments.length === 6) {
-      bits = [[r.fields.listed, b.listed], [r.fields.type, b.type], [r.fields.state, b.state], [r.fields.year, b.year]];
+      bits = [[r.fields.listed, b.listed, w.listed], [r.fields.type, b.type, w.type], [r.fields.state, b.state], [r.fields.year, b.year, w.year]];
     } else return '<td class="cell-facts is-empty-sm"></td>';
     return '<td class="cell-facts">' + bits.map(function (x) {
-      return x[1] ? '<span class="bad-field">' + esc(x[0]) + '</span>' : esc(x[0]);
+      return x[1] ? '<span class="bad-field">' + esc(x[0]) + '</span>'
+        : x[2] ? '<span class="warn-field">' + esc(x[0]) + '</span>' : esc(x[0]);
     }).join(' · ') + '</td>';
   }
 
   function rowHtml(r, idx) {
     var open = !!state.open[idx];
-    var b = r.badFields || {};
+    var b = r.badFields || {}, w = r.warnFields || {};
     var badges = (r.valid
       ? '<span class="badge badge--valid">' + ICON.check + 'Valid</span>'
       : '<span class="badge badge--invalid">' + ICON.bang + 'Invalid</span>') +
+      (hasWarn(r) ? '<span class="badge badge--warn">' + ICON.warnSm + (r.warnings.length > 1 ? r.warnings.length + ' warnings' : 'Warning') + '</span>' : '') +
       (r.duplicateOf ? '<span class="badge badge--dup">Duplicate</span>' : '');
-    var html = '<tr class="row ' + (r.valid ? 'is-valid' : 'is-invalid') + (open ? ' is-open' : '') + '" data-idx="' + idx + '">' +
+    var html = '<tr class="row ' + (r.valid ? 'is-valid' : 'is-invalid') + (r.valid && hasWarn(r) ? ' is-warn' : '') + (open ? ' is-open' : '') + '" data-idx="' + idx + '">' +
       '<td class="cell-line"><span class="sm-only">Line </span>' + r.line + '</td>' +
       '<td class="cell-id">' + idHtml(r) + '</td>' +
       '<td class="cell-status"><div class="badges">' + badges + '</div></td>' +
@@ -369,8 +390,8 @@
       cell(r.kind === 'CIN' ? 'Company' : r.kind === 'LLPIN' ? 'LLP' : '—', 'Kind') +
       (r.kind === 'LLPIN'
         ? '<td colspan="3" data-label="Listed, state, year" class="cell-na">Not part of an LLPIN</td>'
-        : cell(r.fields.listed, 'Listed', b.listed) + cell(r.fields.state, 'State', b.state) + cell(r.fields.year, 'Year', b.year)) +
-      cell(r.fields.type, 'Type', b.type, 'cell-type') +
+        : cell(r.fields.listed, 'Listed', b.listed, '', w.listed) + cell(r.fields.state, 'State', b.state) + cell(r.fields.year, 'Year', b.year, '', w.year)) +
+      cell(r.fields.type, 'Type', b.type, 'cell-type', w.type) +
       detailsCell(r, idx) +
       '<td class="cell-toggle"><button type="button" class="toggle" aria-expanded="' + open + '" aria-controls="detail-' + idx + '">' +
       ICON.chevron + '<span class="toggle__text">' + (open ? 'Hide breakdown' : 'Show breakdown') + '</span>' +
@@ -388,9 +409,10 @@
     }
     if (r.input.trim() !== r.id) meta.push('You typed <span class="mono">' + esc(r.input.trim()) + '</span>');
     if (r.duplicateOf) meta.push('Same ID as line ' + r.duplicateOf);
-    var body = r.valid
+    var body = (r.valid
       ? '<p class="detail__summary">' + esc(r.summary) + '</p>'
-      : '<ul class="detail__errors">' + r.errors.map(function (e) { return '<li>' + esc(e.msg) + '</li>'; }).join('') + '</ul>';
+      : '<ul class="detail__errors">' + r.errors.map(function (e) { return '<li>' + esc(e.msg) + '</li>'; }).join('') + '</ul>') +
+      (hasWarn(r) ? '<ul class="detail__warnings">' + warnList(r, 'li') + '</ul>' : '');
     return '<tr class="detail" id="detail-' + idx + '"><td colspan="10"><div class="detail__inner">' +
       '<div class="segs">' + segsHtml(r.segments) + '</div>' + body +
       '<div class="detail__meta">' + meta.map(function (m) { return '<span>' + m + '</span>'; }).join('') +
@@ -442,7 +464,7 @@
   function exportCsv() {
     // Always export in the order pasted (the current filter and search still apply).
     var rows = (state.visible || state.data).slice().sort(function (a, b) { return a.line - b.line; });
-    var head = ['Line', 'You typed', 'ID', 'Status', 'Kind', 'Listed', 'State', 'Year', 'Company type', 'Problems', 'Suggested fix', 'Notes'];
+    var head = ['Line', 'You typed', 'ID', 'Status', 'Kind', 'Listed', 'State', 'Year', 'Company type', 'Problems', 'Warnings', 'Suggested fix', 'Notes'];
     var q = function (v) {
       v = v == null ? '' : String(v);
       // Excel runs cells starting with = + - @ as formulas, and drops leading zeros from
@@ -455,7 +477,8 @@
       return [r.line, r.input.trim(), r.id, r.valid ? 'Valid' : 'Invalid',
         r.kind === 'CIN' ? 'Company' : r.kind === 'LLPIN' ? 'LLP' : '',
         r.fields.listed, r.fields.state, r.fields.year, r.fields.typeName,
-        r.errors.map(function (e) { return e.msg; }).join(' '), r.suggestion || '', notes.join('; ')
+        r.errors.map(function (e) { return e.msg; }).join(' '), r.warnings.map(function (w) { return w.msg; }).join(' '),
+        r.suggestion || '', notes.join('; ')
       ].map(function (v) { return q(v === '—' ? '' : v); }).join(',');
     }));
     var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });

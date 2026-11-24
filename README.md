@@ -7,8 +7,42 @@ A web page where you paste a list of CINs and LLPINs (one per line) and see, for
 - whether it is valid, and if not, **exactly what is wrong** in plain English
   (e.g. *Characters 7–8: “XX” is not a valid Indian state code.*)
 - company or LLP, listed or unlisted, state, year of incorporation and company type
+- an amber **warning** when the format is valid but the combination breaks company law
+  (e.g. a listed one-person company)
 
 Built for the FileSure Tech Support & Operations internship assignment.
+
+![Results: summary tiles, filters, and a problems-first table with one invalid row and one warning row opened](docs/screenshots/results.png)
+
+*Results for a mixed list. The invalid row (red) and the warning row (amber) are opened to show the
+part-by-part breakdown.*
+
+## Screenshots
+
+All screenshots are from the [live site](https://arnav2293-afk.github.io/cin-llpin-checker/).
+
+**Problems are marked in your own list.** Bad lines get a red dot and tint, warnings get amber,
+and the counter above the box sums them up.
+
+![The input box with line numbers, red marks on invalid lines and amber on a warning line](docs/screenshots/input-markers.png)
+
+**First visit.** Before anything is pasted, the page explains how a CIN is built, using a real one.
+
+![Empty state: the input box and a "How a CIN is built" explainer with the six coloured parts](docs/screenshots/empty-state.png)
+
+**Dark mode and phone.** The page follows the system light or dark setting. Below 1,200px wide,
+each table row becomes a card.
+
+<table>
+  <tr>
+    <td width="68%"><img src="docs/screenshots/dark-mode.png" alt="Results in dark mode"></td>
+    <td width="32%"><img src="docs/screenshots/phone.png" alt="Results on a 390px-wide phone, rows shown as cards"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Dark mode, 1280px</sub></td>
+    <td align="center"><sub>Phone, 390px</sub></td>
+  </tr>
+</table>
 
 ## Run it
 
@@ -33,7 +67,8 @@ Dashboard) and combined the two strongest:
 
 - **Dashboard layout** for scanning big batches: summary tiles (Valid, Invalid,
   Companies, LLPs) that also act as filters, filter chips, search, sort, and a table
-  that puts problems first. On an invalid row, the wrong field is highlighted in red.
+  that puts problems first. On an invalid row, the wrong field is highlighted in red;
+  on a warning row, the fields concerned are highlighted in amber.
 - **Segment decoder** for understanding a single ID: click any row to see it split
   into coloured, labelled parts, with the wrong part in red.
 
@@ -95,4 +130,5 @@ This checks the **format** only. It doesn’t look the company up in MCA records
 | `styles.css` | Design tokens, layout, phone view |
 | `validator.js` | Validation rules. Pure functions, no DOM, also loads in Node |
 | `app.js` | Input handling, tiles, filters, table, breakdown, CSV export |
-| `test/validator.test.js` | 18 unit tests for the validator |
+| `test/validator.test.js` | 32 unit tests for the validator, including both warning rules and a 14-line QA list |
+| `docs/screenshots/` | Screenshots of the live site used in this README |

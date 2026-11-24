@@ -1,5 +1,7 @@
 # CIN & LLPIN Checker
 
+**Live demo: [arnav2293-afk.github.io/cin-llpin-checker](https://arnav2293-afk.github.io/cin-llpin-checker/)**
+
 A web page where you paste a list of CINs and LLPINs (one per line) and see, for each one:
 
 - whether it is valid, and if not, **exactly what is wrong** in plain English

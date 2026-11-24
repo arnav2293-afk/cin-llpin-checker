@@ -342,6 +342,8 @@ kbd { font: 500 12px/1 var(--font-sans); background: var(--surface); border: 1px
 .help[open] { display: flex; flex-direction: column; gap: 16px; animation: reveal .18s ease-out; }
 .help__head { display: flex; justify-content: space-between; align-items: center; }
 .help h3 { margin-top: 8px; }
+.help__rules { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: var(--text-muted); }
+.help__rules strong { color: var(--warning-ink); font-weight: 600; }
 .codes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 24px; margin: 0; font-size: 14px; }
 .codes--states { grid-template-columns: repeat(3, 1fr); }
 .codes div { display: flex; gap: 10px; }

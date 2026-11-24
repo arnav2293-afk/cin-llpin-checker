@@ -179,6 +179,12 @@
     <dl class="codes codes--states" id="help-states"></dl>
     <h3>LLPIN</h3>
     <p class="muted">An LLPIN (LLP Identification Number) is 3 letters, a hyphen and 4 digits, like AAB-1234. It doesn’t include listing, state or year.</p>
+    <h3>Warnings <span class="muted">(amber)</span></h3>
+    <p class="muted">Some CINs have a valid format but a combination that company law doesn’t allow. They stay valid, with a warning to check:</p>
+    <ul class="help__rules">
+      <li><strong>Listed private company.</strong> A CIN starting with L whose type is OPC, PTC, GAP or ULT. Private companies can’t invite the public to buy their shares, so they can’t be listed (Companies Act 2013, s.2(68)).</li>
+      <li><strong>One-person company before 2014.</strong> An OPC dated before 2014. OPCs could only be formed from 1 April 2014, when s.3 of the Companies Act 2013 came into force.</li>
+    </ul>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
